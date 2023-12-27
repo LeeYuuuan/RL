@@ -20,21 +20,6 @@ class Point:
     def get_y(self):
         return self.y
     
-    def is_in_disk(self, disk_center, disk_radius):
-        """if point is covered by disk
-
-        Args:
-            disk_center (Point): disk center point.
-            disk_radius (float): radius of the disk.
-
-        Returns:
-            Bool: return True if disk covers the point, vice versa.
-        """
-        distance_square = Functions.calculate_square_distance(self, disk_center)
-        if distance_square < (disk_radius ** 2): # the inequality sign depends on how to defind "cover"
-            return True
-        else:
-            return False
         
     def is_in_two_disks(self, disk_center_1, disk_center_2, disk_radius):
         """
@@ -77,6 +62,51 @@ class Functions:
     def calculate_square_distance(point_1: Point, point_2: Point) -> float:
         """calculate distance between point_1 and point_2."""
         return (point_1.get_x() - point_2.get_x()) ** 2 + (point_1.get_y() - point_2.get_y()) **2
+    
+    @staticmethod
+    def state_index_to_tuple(index: int):
+        """
+        index --> tuple
+        eg:
+            27 --> (1, 1)
+        """
+        if index >= 0 and index < (26 * 26):
+            return (index // 26, index % 26)
+        
+        return False
+    
+    @staticmethod
+    def state_tuple_to_index(tp: tuple):
+        """
+        inverse function of 
+            state_index_to_tuple(index: int).
+        eg:
+            (1, 1) --> 27
+        """
+        index = tp[0] * 26 + tp[1]
+        if index >= 0 and index < (26 * 26):
+            return index
+        return False
+    
+    @staticmethod
+    def action_index_to_tuple(index: int):
+        """
+        eg:
+            6 --> (1, 1)
+        """
+        if index >= 0 and index < (5 * 5):
+            return (index // 5, index % 5)
+    
+    @staticmethod
+    def action_tuple_to_index(tp: tuple):
+        """
+        eg:
+            (1, 1) --> 6
+        """
+        index = tp[0] * 5 + tp[1]
+        if index >= 0 and index < (5 * 5):
+            return index
+        return False     
     
     
     @staticmethod
@@ -140,13 +170,114 @@ class Square:
         self.load_points()
 
         # q-learning
+        self.states = [] # for two disks, there are 25 * 25 states.
+        self.actions = []
         self.gamma = gamma
         self.one_disk_r = None
         self.state_size_one_disk = len(self.intersections) + 1 # s= 25: "end" state.
         self.one_disk_Q = np.zeros([self.state_size_one_disk, 5])
 
+        """two disks"""
+        self.r = None
+    
+    def load_intersections(self):
+        """Load intersection points of the square area."""
+        intersections = []
+        for i in range(0, self.side_len+1, self.divided_len):
+            for j in range(0, self.side_len+1, self.divided_len):
+                intersections.append(Point(i, j))
+        self.intersections = intersections
+    
+    def load_points(self, point_pth="UserDistribution.txt"):
+        """load point from txt.
+
+        Args:
+            point_pth (str): file path.
+        """
+        points = []
+        with open(point_pth, 'r') as f:
+            for line in f.readlines():
+                if len(line.strip()) == 11:
+                    points.append(Point(line.strip()[0:4], line.strip()[7:11]))
+        
+        self.points = points
+    
+    def number_points_in_disks(self, current_center_1, current_center_2):
+        """calculate the number of points in the certain disks definded through param: (Point) current_center"""
+        count_points = 0
+        for point in self.points:
+            if point.is_in_two_disks(current_center_1, current_center_2, self.radius):
+                count_points += 1
+                # point.print_point()
+        return count_points
+    
+    def state_to_new(self, s, a):
+        """ 
+        0 for up,
+        1 for down, 
+        2 for left, 
+        3 for rigth
+        4 for end"""
+        if s in range(self.state_size_one_disk) and a in range(5):
+            if a == 4 or s == 25:
+                return 25
+            if a == 0 and s % 5 != 4:
+                return s + 1
+            if a == 1 and s % 5 != 0:
+                return s - 1
+            if a == 2 and s not in range(0, self.side_len+1):
+                return s - self.side_len - 1
+            if a == 3 and s not in range(self.state_size_one_disk-self.side_len-1, self.state_size_one_disk):
+                return s + self.side_len + 1    
+            
+        
+        return -1
+
+
+    def calculate_r_one_disk(self, s, a):
+        """calculate Q.
+
+        Args:
+            s (int): state, which is the index of intersection.
+            a (int): action, 0, 1, 2, 3: for Up, down, left, right
+        
+        Return:
+            float: return r value.
+        """
+        if s in range(self.state_size_one_disk) and a in range(5):
+            new_state = self.state_to_new(s, a)
+            if new_state == 25:
+                return 0
+            
+            if new_state != -1:
+                return self.number_points_in_disk(self.intersections[new_state]) - self.number_points_in_disk(self.intersections[s])
+
+        return -100
+    
+    def initialize_two_disks(self):
+        """
+        states = [(i, j), ...]
+            i = index of the 1st center in the list[]: intersections
+            j = index of the 2nd center in the list[]: intersections
+        
+        actions = [(i, j), ...]
+            
+        """
+        for i in range(self.state_size_one_disk):
+            for j in range(self.state_size_one_disk):
+                self.states.append((i, j))
+        
+        for i in range(5):
+            for j in range(5):
+                self.actions.append((i, j))
+
+
+        r = np.zeros([len(self.states), len(self.actions)])
+
 
 square = Square()
+print(Functions.action_index_to_tuple(6))
+print(Functions.action_tuple_to_index((1, 1)))
         
     
 

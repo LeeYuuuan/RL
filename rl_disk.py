@@ -200,14 +200,6 @@ class Square:
     
 
     """For Q-learning"""
-    def coordi_is_legal(self, coordi):
-        
-        for c in coordi:
-            if c not in range(0, self.side_len+1):
-                return False
-        return True
-                
-
     def state_to_new(self, s, a):
         """ 
         0 for up,
