@@ -85,7 +85,7 @@ class Functions:
         fig, ax = plt.subplots()
         plt.scatter(x_list, y_list, s=10)
         if isinstance(current_center, list):
-            print(type(current_center))
+            # print(type(current_center))
             disk_r = Circle((current_center[0].get_x(),current_center[0].get_y()),radius, color="r", alpha=0.5)
             disk_b = Circle((current_center[1].get_x(),current_center[1].get_y()),radius, color="b", alpha=0.5)
             ax.add_patch(disk_r)
@@ -97,7 +97,7 @@ class Functions:
         else:
             disk = plt.Circle((current_center.get_x(),current_center.get_y()),radius, color="r", alpha=0.5)
             ax.add_patch(disk)
-            text_str = f"the number of points\n in the disk: {square.number_points_in_disk(current_center)}"
+            text_str = f"points: {square.number_points_in_disk(current_center)}"
             ax.text(1.1, 0.5, text_str, transform=ax.transAxes, verticalalignment='center', fontsize=10)
 
         # plt.gca().add_patch(disk)
@@ -130,6 +130,9 @@ class Square:
         self.points = [] 
         self.load_intersections()
         self.load_points()
+
+        # q-learning
+        self.one_disk_states = None
         
     
     def load_intersections(self):
@@ -161,23 +164,51 @@ class Square:
         for point in self.points:
             if point.is_in_disk(current_center, self.radius):
                 count_points += 1
-                point.print_point()
+                # point.print_point()
         return count_points
 
-    def hard_code_implementation():
+    def hard_code_implementation(self):
+        """calculate every number of points covered by a disk centered on each each intersection"""
+        number_points_list = []
+        for intersection in self.intersections:
+            number_points_list.append(self.number_points_in_disk(intersection))
+        print(number_points_list)
+        max_value = max(number_points_list)
+        max_index = number_points_list.index(max_value)
+        max_intersection = self.intersections[max_index]
+        return max_index
+    
+
+    """For Q-learning"""
+    def initialize_one_disk_states():
         raise NotImplementedError
+    
+    def Q(self, s, a):
+        """calculate Q.
+
+        Args:
+            s (int): state, which is the index of intersection.
+            a (int): action, 0, 1, 2, 3: for Up, down, left, right
+        
+        Return:
+            float: return Q value.
+        """
+        res = 0
+        return res 
     
     def test_block(self):
         test_point = self.points[0]
         test_intersection = self.intersections[1]
-        print(f"square of distances:{Functions.calculate_square_distance(test_point, test_intersection)}")
-        print(self.number_points_in_disk(test_intersection))
+        # print(f"square of distances:{Functions.calculate_square_distance(test_point, test_intersection)}")
+        # print(self.number_points_in_disk(test_intersection))
         # Functions.show_coverd_state([test_intersection, self.intersections[2]], self.radius, self.points)
-        Functions.show_coverd_state(test_intersection, self.radius, self.points)
+        max_index = self.hard_code_implementation()
+        Functions.show_coverd_state(self.intersections[max_index], self.radius, self.points)
         
             
 
 square = Square()
 # Functions.show_point(square.points)
 square.test_block()
+# square.hard_code_implementation()
 
