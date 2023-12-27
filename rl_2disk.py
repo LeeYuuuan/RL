@@ -68,12 +68,12 @@ class Functions:
         """
         index --> tuple
         eg:
-            27 --> (1, 1)
+            26 --> (1, 1)
         """
-        if index >= 0 and index < (26 * 26):
-            return (index // 26, index % 26)
+        if index >= 0 and index < (25 * 25):
+            return (index // 25, index % 25)
         
-        return False
+        return -1
     
     @staticmethod
     def state_tuple_to_index(tp: tuple):
@@ -81,12 +81,13 @@ class Functions:
         inverse function of 
             state_index_to_tuple(index: int).
         eg:
-            (1, 1) --> 27
+            (1, 1) --> 26
         """
-        index = tp[0] * 26 + tp[1]
-        if index >= 0 and index < (26 * 26):
-            return index
-        return False
+        x = tp[0]
+        y = tp[1]
+        if x in range(25) and y in range(25):
+            return x * 25 + y
+        return -1
     
     @staticmethod
     def action_index_to_tuple(index: int):
@@ -103,10 +104,11 @@ class Functions:
         eg:
             (1, 1) --> 6
         """
-        index = tp[0] * 5 + tp[1]
-        if index >= 0 and index < (5 * 5):
-            return index
-        return False     
+        x = tp[0]
+        y = tp[1]
+        if x in range(5) and y in range(5):
+            return x * 5 + y
+        return -1     
     
     
     @staticmethod
@@ -116,6 +118,36 @@ class Functions:
         plt.gca().add_patch(disk)
         plt.show()
     
+    @staticmethod
+    def show_coverd(current_center, radius, point_list):
+        x_list = []
+        y_list = []
+        for p in point_list:
+            x_list.append(p.get_x())
+            y_list.append(p.get_y())
+        
+        fig, ax = plt.subplots()
+        plt.scatter(x_list, y_list, s=10)
+        disk_r = Circle((current_center[0].get_x(),current_center[0].get_y()),radius, color="r", alpha=0.5)
+        disk_b = Circle((current_center[1].get_x(),current_center[1].get_y()),radius, color="b", alpha=0.5)
+        ax.add_patch(disk_r)
+        ax.add_patch(disk_b)
+        text_str = f"points: {square.number_points_in_disks(current_center[0], current_center[1])}"
+        ax.text(1.1, 0.5, text_str, transform=ax.transAxes, verticalalignment='center', fontsize=10)
+        ax.set_aspect('equal', adjustable='box')
+        
+       
+        ax.grid()
+        plt.xlim((-2, 6))
+        plt.ylim((-2, 6))
+        plt.xticks(np.arange(-2, 6, 1))
+        plt.yticks(np.arange(-2, 6, 1))
+        
+        #plt.grid()
+        
+        plt.show()
+
+
     @staticmethod
     def show_coverd_state(current_center: Union[Point, list], radius, point_list):
 
@@ -170,15 +202,23 @@ class Square:
         self.load_points()
 
         # q-learning
-        self.states = [] # for two disks, there are 25 * 25 states.
-        self.actions = []
+        
         self.gamma = gamma
         self.one_disk_r = None
         self.state_size_one_disk = len(self.intersections) + 1 # s= 25: "end" state.
         self.one_disk_Q = np.zeros([self.state_size_one_disk, 5])
 
         """two disks"""
-        self.r = None
+        self.states = [] # for two disks, there are 25 * 25 states.
+        self.actions = [] # 5 * 5 actions.
+        
+        
+        self.initialize_two_disks()
+        self.states_size = len(self.states)
+        self.actions_size = len(self.actions)
+        self.r = np.zeros([len(self.states), len(self.actions)])
+        self.initilize_r()
+        self.Q = np.zeros_like(self.r)
     
     def load_intersections(self):
         """Load intersection points of the square area."""
@@ -218,9 +258,9 @@ class Square:
         2 for left, 
         3 for rigth
         4 for end"""
-        if s in range(self.state_size_one_disk) and a in range(5):
-            if a == 4 or s == 25:
-                return 25
+        if s in range(self.state_size_one_disk - 1) and a in range(5):
+            if a == 4:
+                return s 
             if a == 0 and s % 5 != 4:
                 return s + 1
             if a == 1 and s % 5 != 0:
@@ -232,28 +272,42 @@ class Square:
             
         
         return -1
-
-
-    def calculate_r_one_disk(self, s, a):
-        """calculate Q.
-
-        Args:
-            s (int): state, which is the index of intersection.
-            a (int): action, 0, 1, 2, 3: for Up, down, left, right
-        
-        Return:
-            float: return r value.
-        """
-        if s in range(self.state_size_one_disk) and a in range(5):
-            new_state = self.state_to_new(s, a)
-            if new_state == 25:
-                return 0
-            
-            if new_state != -1:
-                return self.number_points_in_disk(self.intersections[new_state]) - self.number_points_in_disk(self.intersections[s])
-
-        return -100
     
+    def two_disks_states_to_new(self, s, a):
+        if s in range(self.states_size) and a in range(self.actions_size):
+            s1, s2 = Functions.state_index_to_tuple(s)
+            a1, a2 = Functions.action_index_to_tuple(a)
+            # print(s1, s2)
+            # print(a1, a2)
+        s1_new = self.state_to_new(s1, a1)
+        s2_new = self.state_to_new(s2, a2)
+        # print(s1_new, s2_new)
+        
+        s_new = Functions.state_tuple_to_index((s1_new, s2_new))
+        return s_new
+
+
+    def calculate_r(self, s, a):
+        state_1, state_2 = Functions.state_index_to_tuple(s)
+        new_state = self.two_disks_states_to_new(s, a)
+        if new_state == -1:
+            return -100
+        # print(type(new_state))
+        new_state_1, new_state_2 = Functions.state_index_to_tuple(new_state)
+
+
+  
+        return self.number_points_in_disks(self.intersections[new_state_1], self.intersections[new_state_2]) - self.number_points_in_disks(self.intersections[state_1], self.intersections[state_2])
+        
+    
+    def initilize_r(self):
+        for i in range(self.states_size):
+            for j in range(self.actions_size):
+                self.r[i, j] = self.calculate_r(i, j)
+        # print(self.r)
+
+
+                
     def initialize_two_disks(self):
         """
         states = [(i, j), ...]
@@ -261,23 +315,73 @@ class Square:
             j = index of the 2nd center in the list[]: intersections
         
         actions = [(i, j), ...]
-            
+            action, 0, 1, 2, 3: for Up, down, left, right
+            4 for end.
         """
-        for i in range(self.state_size_one_disk):
-            for j in range(self.state_size_one_disk):
+        for i in range(self.state_size_one_disk - 1):
+            for j in range(self.state_size_one_disk - 1):
                 self.states.append((i, j))
         
         for i in range(5):
             for j in range(5):
                 self.actions.append((i, j))
 
+    def update_Q(self, s, a):
+        self.Q[s, a] = self.r[s, a] + self.gamma * self.Q[s].max()
+        
+    def Q_learning(self):
+        actions = []
+        for i in range(100000):
+            s = random.randint(0, self.states_size - 1)
+            for action in range(self.actions_size):
+                if self.r[s, action] > -50:
+                    actions.append(action)
+            a = actions[random.randint(0, len(actions) - 1)]
+            self.update_Q(s, a)
+        print(self.Q)
 
-        r = np.zeros([len(self.states), len(self.actions)])
+    def find_max(self):
+        self.Q_learning()
+        state = 600
+        print(f"the disk is on state:{state}")
+        count = 0
+        states = []
+        for i in range(20):
+            states.append(state)
+            if count > 20:
+                print("fail")
+                break
+
+            q_max = self.Q[state].max()
+
+
+            q_max_action = np.argmax(self.Q[state])
+            
+            new_state = self.two_disks_states_to_new(state, q_max_action)
+
+            if new_state != -1:
+                state = new_state
+            else:
+                print("fail state!")
+                break
+            print(f"the disk move to state{state}")
+        max_index = states[-1]
+        print(max_index)
+        max_index_1, max_index_2 = Functions.state_index_to_tuple(max_index)
+        Functions.show_coverd([self.intersections[max_index_1], self.intersections[max_index_2]], self.radius, self.points)
+    
+
+
+    
+
+    
+
+
 
 
 square = Square()
-print(Functions.action_index_to_tuple(6))
-print(Functions.action_tuple_to_index((1, 1)))
-        
+square.find_max()
+
+
     
 

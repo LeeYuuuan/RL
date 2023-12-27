@@ -273,7 +273,7 @@ class Square:
     
     def one_disk_find_max(self):
         self.one_disk_Q_learning()
-        state = 13
+        state = 12
         print(f"the disk is on state:{state}")
         count = 0
         states = []
